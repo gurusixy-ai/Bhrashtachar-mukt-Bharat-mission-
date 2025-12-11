@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { User, UserRole, UserStatus, OrganizationAssets, MediaItem } from './types';
-import { getCurrentUser, setCurrentUser, getUsers, saveUser, generateEdNumber, saveOrgAssets, getOrgAssets } from './services/storage';
+import { User, UserRole, UserStatus, OrganizationAssets, MediaItem, Post } from './types';
+import { getCurrentUser, setCurrentUser, getUsers, saveUser, generateEdNumber, saveOrgAssets, getOrgAssets, getPosts, savePost, updatePost, deletePost } from './services/storage';
 import { generateJoiningLetterContent } from './services/geminiService';
 import { Button } from './components/Button';
 import { IdCard } from './components/IdCard';
 import { JoiningLetter } from './components/JoiningLetter';
 import { ApplicationForm } from './components/ApplicationForm';
-import { LogOut, User as UserIcon, Shield, FileText, CheckCircle, XCircle, CreditCard, Download, Loader2, Upload, Lock, Share2, Image as ImageIcon, FileType, ScrollText, Settings, PenTool, Stamp, Home, Search, Facebook, Twitter, Instagram, Video, Youtube, MapPin, Phone, Mail, Check, RefreshCw, Edit2, Save, ArrowLeft, Key, UserPlus, Star, MessageCircle, AlertTriangle } from 'lucide-react';
+import { LogOut, User as UserIcon, Shield, FileText, CheckCircle, XCircle, CreditCard, Download, Loader2, Upload, Lock, Share2, Image as ImageIcon, FileType, ScrollText, Settings, PenTool, Stamp, Home, Search, Facebook, Twitter, Instagram, Video, Youtube, MapPin, Phone, Mail, Check, RefreshCw, Edit2, Save, ArrowLeft, Key, UserPlus, Star, MessageCircle, AlertTriangle, PlusCircle, Trash2, Newspaper, Bell, Palette } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 
@@ -42,7 +42,6 @@ const compressImage = (file: File): Promise<string> => {
         const ctx = canvas.getContext('2d');
         if (ctx) {
             ctx.drawImage(img, 0, 0, width, height);
-            // Compress to JPEG with 0.7 quality
             resolve(canvas.toDataURL('image/jpeg', 0.7));
         } else {
             reject(new Error("Canvas context failed"));
@@ -118,26 +117,6 @@ const LandingPage = ({ onJoin, onLoginAdmin }: { onJoin: () => void, onLoginAdmi
   const [searchId, setSearchId] = useState('');
   const [searchResult, setSearchResult] = useState<User | null>(null);
   const [searchError, setSearchError] = useState('');
-  const [publicGallery, setPublicGallery] = useState<{user: string, url: string, type: string, caption?: string}[]>([]);
-
-  useEffect(() => {
-    // Load approved media for public gallery
-    const allUsers = getUsers();
-    const approvedMedia: {user: string, url: string, type: string, caption?: string}[] = [];
-    allUsers.forEach(u => {
-      u.gallery.forEach(m => {
-        if (m.approved) {
-          approvedMedia.push({
-            user: u.details.fullName,
-            url: m.url,
-            type: m.type,
-            caption: m.caption
-          });
-        }
-      });
-    });
-    setPublicGallery(approvedMedia.reverse().slice(0, 9)); // Show last 9 approved items
-  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
       e.preventDefault();
@@ -146,7 +125,6 @@ const LandingPage = ({ onJoin, onLoginAdmin }: { onJoin: () => void, onLoginAdmi
       if(!searchId.trim()) return;
 
       const users = getUsers();
-      // Case insensitive search
       const found = users.find(u => u.edNumber.toLowerCase() === searchId.toLowerCase().trim() && u.status === UserStatus.APPROVED);
       
       if (found) {
@@ -182,7 +160,7 @@ const LandingPage = ({ onJoin, onLoginAdmin }: { onJoin: () => void, onLoginAdmi
             <div className="grid md:grid-cols-2 gap-12 items-center">
                 <div className="text-center md:text-left">
                     <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight mb-6 leading-tight">
-                    Building a <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-yellow-300">Corruption Free</span> India
+                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-yellow-300">भ्रष्टाचार मुक्त भारत</span>
                     </h1>
                     <p className="text-lg text-blue-100 mb-8 leading-relaxed max-w-lg mx-auto md:mx-0">
                     Join the nationwide movement. Get your official identity card, connect with thousands of volunteers, and serve the nation with pride.
@@ -230,33 +208,6 @@ const LandingPage = ({ onJoin, onLoginAdmin }: { onJoin: () => void, onLoginAdmi
         </div>
       </div>
 
-      {/* Stats / Features */}
-      <div className="max-w-7xl mx-auto px-4 py-16 -mt-10 relative z-20">
-         <div className="grid md:grid-cols-3 gap-8">
-            <div className="bg-white p-8 rounded-xl shadow-lg border-b-4 border-blue-600 hover:-translate-y-1 transition-transform">
-               <div className="bg-blue-100 w-14 h-14 rounded-full flex items-center justify-center mb-4">
-                  <Shield className="w-7 h-7 text-blue-600" />
-               </div>
-               <h3 className="text-xl font-bold mb-2">Verified Identity</h3>
-               <p className="text-slate-600">Every member undergoes strict verification (Aadhaar & Manual review) before receiving an ID card.</p>
-            </div>
-            <div className="bg-white p-8 rounded-xl shadow-lg border-b-4 border-orange-500 hover:-translate-y-1 transition-transform">
-               <div className="bg-orange-100 w-14 h-14 rounded-full flex items-center justify-center mb-4">
-                  <FileText className="w-7 h-7 text-orange-500" />
-               </div>
-               <h3 className="text-xl font-bold mb-2">Automated Joining Letter</h3>
-               <p className="text-slate-600">Get an instant, AI-generated professional appointment letter upon approval.</p>
-            </div>
-            <div className="bg-white p-8 rounded-xl shadow-lg border-b-4 border-green-600 hover:-translate-y-1 transition-transform">
-               <div className="bg-green-100 w-14 h-14 rounded-full flex items-center justify-center mb-4">
-                  <Video className="w-7 h-7 text-green-600" />
-               </div>
-               <h3 className="text-xl font-bold mb-2">Impact Gallery</h3>
-               <p className="text-slate-600">Share your social work photos and videos directly to our national portal.</p>
-            </div>
-         </div>
-      </div>
-
       {/* Footer */}
       <footer className="bg-slate-900 text-slate-300 py-12 border-t border-slate-800">
         <div className="max-w-7xl mx-auto px-4 grid md:grid-cols-4 gap-8">
@@ -278,24 +229,6 @@ const LandingPage = ({ onJoin, onLoginAdmin }: { onJoin: () => void, onLoginAdmi
                  <li className="flex items-center gap-3"><Mail size={18} className="text-orange-500 shrink-0"/> <span>bmbm.gov@gmail.com</span></li>
               </ul>
            </div>
-
-           <div>
-              <h4 className="text-white font-bold text-lg mb-4">Quick Links</h4>
-              <ul className="space-y-2 text-sm">
-                 <li><button onClick={onJoin} className="hover:text-white transition-colors">Apply for Membership</button></li>
-                 <li><button onClick={onLoginAdmin} className="hover:text-white transition-colors">Member Login</button></li>
-              </ul>
-           </div>
-
-           <div>
-             <h4 className="text-white font-bold text-lg mb-4">Connect With Us</h4>
-             <div className="flex gap-4">
-                {assets.socialLinks?.facebook && <a href={assets.socialLinks.facebook} target="_blank" className="bg-slate-800 p-2 rounded-lg hover:bg-[#1877F2] hover:text-white transition-all"><Facebook size={20} /></a>}
-                {assets.socialLinks?.twitter && <a href={assets.socialLinks.twitter} target="_blank" className="bg-slate-800 p-2 rounded-lg hover:bg-[#1DA1F2] hover:text-white transition-all"><Twitter size={20} /></a>}
-                {assets.socialLinks?.instagram && <a href={assets.socialLinks.instagram} target="_blank" className="bg-slate-800 p-2 rounded-lg hover:bg-[#E4405F] hover:text-white transition-all"><Instagram size={20} /></a>}
-                {assets.socialLinks?.youtube && <a href={assets.socialLinks.youtube} target="_blank" className="bg-slate-800 p-2 rounded-lg hover:bg-[#FF0000] hover:text-white transition-all"><Youtube size={20} /></a>}
-             </div>
-           </div>
         </div>
       </footer>
     </div>
@@ -305,44 +238,34 @@ const LandingPage = ({ onJoin, onLoginAdmin }: { onJoin: () => void, onLoginAdmi
 // 1. LOGIN PAGE
 interface LoginProps { 
     onLogin: (u: User) => void; 
-    onRegisterRequest: (auth: { email: string, provider: 'google' | 'facebook' | 'manual' }) => void;
+    onRegisterRequest: () => void;
     onBack: () => void;
-    onGoToRegister: () => void;
 }
 
-const LoginPage = ({ onLogin, onRegisterRequest, onBack, onGoToRegister }: LoginProps) => {
-  const [email, setEmail] = useState('');
+const LoginPage = ({ onLogin, onRegisterRequest, onBack }: LoginProps) => {
+  const [loginId, setLoginId] = useState(''); // Mobile or Email
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
-  const handleSocialLogin = (provider: 'google' | 'facebook') => {
-    // Simulated Google Login Flow
-    const simulatedEmail = window.prompt(`Enter your ${provider === 'google' ? 'Google' : 'Facebook'} email to simulate login:`, "user@gmail.com");
-    if (!simulatedEmail) return;
-
-    const users = getUsers();
-    const existingUser = users.find(u => u.email === simulatedEmail && u.role === UserRole.USER);
-
-    if (existingUser) {
-        setCurrentUser(existingUser);
-        onLogin(existingUser);
-    } else {
-        onRegisterRequest({ email: simulatedEmail, provider });
-    }
-  };
-
   const handleManualLogin = (e: React.FormEvent) => {
       e.preventDefault();
       setIsLoading(true);
       setTimeout(() => {
           const users = getUsers();
-          const user = users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
+          const normalizedLoginId = loginId.trim();
+          
+          // Find user by (Mobile OR Email) AND Password
+          // Email check is case-insensitive
+          const user = users.find(u => 
+              (u.details.mobile === normalizedLoginId || (u.email && u.email.toLowerCase() === normalizedLoginId.toLowerCase())) && 
+              u.password === password
+          );
           
           if (user) {
               setCurrentUser(user);
               onLogin(user);
           } else {
-              alert("Invalid Email or Password. If you are an admin, ensure you are using the correct credentials.");
+              alert("Invalid Credentials. Please check your Mobile/Email or Password.");
           }
           setIsLoading(false);
       }, 800);
@@ -355,54 +278,34 @@ const LoginPage = ({ onLogin, onRegisterRequest, onBack, onGoToRegister }: Login
 
         <div className="text-center mb-8 mt-4">
           <Shield className="w-12 h-12 text-blue-600 mx-auto mb-2" />
-          <h1 className="text-2xl font-bold text-slate-800">Mission Login</h1>
-          <p className="text-slate-500 mt-2">Access your Digital ID and Profile</p>
+          <h1 className="text-2xl font-bold text-slate-800">Welcome Back</h1>
+          <p className="text-slate-500 mt-2">Login with Mobile or Email</p>
         </div>
 
         <form onSubmit={handleManualLogin} className="space-y-4 mb-6">
             <div>
+                <label className="text-xs font-semibold text-slate-500 ml-1">Mobile Number or Email Address</label>
                 <input 
-                    type="email" placeholder="Email Address" required
-                    value={email} onChange={e=>setEmail(e.target.value)}
+                    type="text" placeholder="Enter Mobile Number OR Email Address" required
+                    value={loginId} onChange={e=>setLoginId(e.target.value)}
                     className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-blue-500 outline-none"
                 />
             </div>
             <div>
+                <label className="text-xs font-semibold text-slate-500 ml-1">Password</label>
                 <input 
-                    type="password" placeholder="Password" required
+                    type="password" placeholder="Enter your password" required
                     value={password} onChange={e=>setPassword(e.target.value)}
                     className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-blue-500 outline-none"
                 />
             </div>
             <Button type="submit" className="w-full" isLoading={isLoading}>Log In</Button>
         </form>
-
-        <div className="relative mb-6">
-            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200"></div></div>
-            <div className="relative flex justify-center text-sm"><span className="px-2 bg-white text-slate-500">Or continue with</span></div>
-        </div>
-
-        <div className="space-y-3">
-            <button 
-                onClick={() => handleSocialLogin('google')}
-                className="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold py-2.5 px-4 rounded-lg flex items-center justify-center gap-3 transition-all"
-            >
-                <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-5 h-5" alt="G" />
-                Google
-            </button>
-            <button 
-                onClick={() => handleSocialLogin('facebook')}
-                className="w-full bg-[#1877F2] hover:bg-[#166fe5] text-white font-semibold py-2.5 px-4 rounded-lg flex items-center justify-center gap-3 transition-all"
-            >
-                <Facebook className="w-5 h-5" fill="white" />
-                Facebook
-            </button>
-        </div>
         
         <div className="text-center mt-8 pt-4 border-t">
             <p className="text-slate-600 text-sm">
                 New to the mission?{' '}
-                <button onClick={onGoToRegister} className="text-blue-600 font-bold hover:underline">
+                <button onClick={onRegisterRequest} className="text-blue-600 font-bold hover:underline">
                     Create Account
                 </button>
             </p>
@@ -414,17 +317,18 @@ const LoginPage = ({ onLogin, onRegisterRequest, onBack, onGoToRegister }: Login
 
 // 2. REGISTER PAGE
 interface RegisterProps {
-    initialAuth: { email: string, provider: 'google' | 'facebook' | 'manual' } | null;
+    isAdminMode?: boolean; // Reusing this for Admin "Create User"
     onCancel: () => void;
     onComplete: (user: User) => void;
-    onGoToLogin: () => void;
+    onGoToLogin?: () => void;
 }
 
-const RegisterPage = ({ initialAuth, onCancel, onComplete, onGoToLogin }: RegisterProps) => {
+const RegisterPage = ({ isAdminMode = false, onCancel, onComplete, onGoToLogin }: RegisterProps) => {
   const [formData, setFormData] = useState({
     fullName: '', 
     fatherName: '', 
     mobile: '', 
+    email: '',
     dob: '', 
     village: '',
     post: '',
@@ -433,7 +337,6 @@ const RegisterPage = ({ initialAuth, onCancel, onComplete, onGoToLogin }: Regist
     state: '', 
     department: 'General Member', 
     designation: 'Member',
-    email: initialAuth?.email || '',
     password: '',
     socialLinks: {
         facebook: '',
@@ -446,8 +349,6 @@ const RegisterPage = ({ initialAuth, onCancel, onComplete, onGoToLogin }: Regist
   const [aadhaarFront, setAadhaarFront] = useState<string | null>(null);
   const [aadhaarBack, setAadhaarBack] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  
-  const provider = initialAuth?.provider || 'manual';
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, setter: (s: string) => void) => {
     if (e.target.files && e.target.files[0]) {
@@ -464,12 +365,20 @@ const RegisterPage = ({ initialAuth, onCancel, onComplete, onGoToLogin }: Regist
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!photo || !aadhaarFront || !aadhaarBack) return alert("Please upload Photo, Aadhaar Front, and Aadhaar Back.");
-    if (provider === 'manual' && !formData.password) return alert("Please set a password.");
+    if (!formData.mobile) return alert("Mobile number is required for ID Card generation.");
+    if (!formData.password) return alert("Password is required.");
     
-    // Check if email already exists
     const users = getUsers();
-    if (users.find(u => u.email === formData.email)) {
-        alert("This email is already registered. Please login.");
+    
+    // Check if mobile already exists
+    if (users.find(u => u.details.mobile === formData.mobile)) {
+        alert("This mobile number is already registered. Please login.");
+        return;
+    }
+
+    // Check if email already exists (if provided)
+    if (formData.email && users.find(u => u.email && u.email.toLowerCase() === formData.email.toLowerCase())) {
+        alert("This email is already registered.");
         return;
     }
 
@@ -479,11 +388,11 @@ const RegisterPage = ({ initialAuth, onCancel, onComplete, onGoToLogin }: Regist
     const newUser: User = {
       id: Date.now().toString(),
       edNumber: generateEdNumber(),
-      email: formData.email, 
-      authProvider: provider,
-      password: formData.password, // Save password
+      email: formData.email, // Email provided by user
+      authProvider: 'manual',
+      password: formData.password, 
       role: UserRole.USER,
-      status: UserStatus.PENDING,
+      status: isAdminMode ? UserStatus.APPROVED : UserStatus.PENDING, // Auto approve if admin creates
       gallery: [],
       details: {
         ...formData,
@@ -497,18 +406,20 @@ const RegisterPage = ({ initialAuth, onCancel, onComplete, onGoToLogin }: Regist
     };
 
     saveUser(newUser);
-    setCurrentUser(newUser); 
+    if (!isAdminMode) {
+        setCurrentUser(newUser); 
+    }
     setLoading(false);
     onComplete(newUser);
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 py-12 px-4 flex justify-center">
-      <div className="max-w-4xl w-full bg-white rounded-xl shadow-lg overflow-hidden">
+    <div className={`min-h-screen ${isAdminMode ? 'bg-transparent' : 'bg-slate-50 py-12 px-4'} flex justify-center`}>
+      <div className={`max-w-4xl w-full bg-white ${!isAdminMode && 'rounded-xl shadow-lg'} overflow-hidden`}>
         <div className="bg-blue-900 px-8 py-6 flex justify-between items-center text-white">
           <div>
-              <h2 className="text-2xl font-bold">Membership Application</h2>
-              <p className="text-blue-200 text-sm">Join the mission for a corruption-free India</p>
+              <h2 className="text-2xl font-bold">{isAdminMode ? 'Create New Member' : 'Membership Application'}</h2>
+              <p className="text-blue-200 text-sm">{isAdminMode ? 'Manually add a member to the database' : 'Join the mission for a corruption-free India'}</p>
           </div>
           <button onClick={onCancel} className="text-blue-200 hover:text-white">Cancel</button>
         </div>
@@ -516,21 +427,30 @@ const RegisterPage = ({ initialAuth, onCancel, onComplete, onGoToLogin }: Regist
         <form onSubmit={handleSubmit} className="p-8 grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="md:col-span-2 bg-blue-50 p-4 rounded-lg border border-blue-100 mb-2">
             <h3 className="font-bold text-blue-900 mb-2">Required Documents</h3>
-            <p className="text-sm text-blue-700">Please upload a clear passport photo and both sides of your Aadhaar card for verification.</p>
+            <p className="text-sm text-blue-700">Please upload a clear passport photo and both sides of your Aadhaar card.</p>
           </div>
 
           {/* Account Credentials */}
           <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-slate-50 rounded-lg border border-slate-200">
-             <div className="md:col-span-2 font-semibold text-slate-700">Account Credentials</div>
-             <input required placeholder="Email Address" type="email" className="w-full p-2 border rounded" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} disabled={provider !== 'manual'} />
-             {provider === 'manual' && (
-                 <input required placeholder="Create Password" type="password" className="w-full p-2 border rounded" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
-             )}
+             <div className="md:col-span-2 font-semibold text-slate-700 flex items-center gap-2"><Key size={16}/> Account Credentials</div>
+             <div>
+                <label className="text-xs text-slate-500 font-bold ml-1">Mobile Number (Primary ID) <span className="text-red-500">*</span></label>
+                <input required placeholder="Mobile Number" type="tel" className="w-full p-2 border rounded" value={formData.mobile} onChange={e => setFormData({...formData, mobile: e.target.value})} />
+             </div>
+             <div>
+                <label className="text-xs text-slate-500 font-bold ml-1">Email (Alternative Login)</label>
+                <input placeholder="example@gmail.com" type="email" className="w-full p-2 border rounded" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+                <p className="text-[10px] text-slate-400 ml-1 mt-1">You can use this email to login instead of mobile.</p>
+             </div>
+             <div className="md:col-span-2">
+                <label className="text-xs text-slate-500 font-bold ml-1">Set Password <span className="text-red-500">*</span></label>
+                <input required placeholder="Create Password" type="password" className="w-full p-2 border rounded" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
+             </div>
           </div>
 
           {/* Photo */}
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-slate-700 mb-2">Your Profile Photo</label>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Profile Photo <span className="text-red-500">*</span></label>
             <div className="flex items-center gap-6">
               <div className="w-24 h-24 rounded-full bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center overflow-hidden">
                 {photo ? <img src={photo} className="w-full h-full object-cover" /> : <UserIcon className="text-slate-300" />}
@@ -544,7 +464,6 @@ const RegisterPage = ({ initialAuth, onCancel, onComplete, onGoToLogin }: Regist
              <input required placeholder="Full Name" className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none" value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} />
              <input required placeholder="Father/Husband Name" className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none" value={formData.fatherName} onChange={e => setFormData({...formData, fatherName: e.target.value})} />
              <input required placeholder="Date of Birth" type="date" className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none" value={formData.dob} onChange={e => setFormData({...formData, dob: e.target.value})} />
-             <input required placeholder="Mobile Number" className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none" value={formData.mobile} onChange={e => setFormData({...formData, mobile: e.target.value})} />
           </div>
 
           <div className="space-y-4">
@@ -565,15 +484,15 @@ const RegisterPage = ({ initialAuth, onCancel, onComplete, onGoToLogin }: Regist
              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                  <div className="flex items-center gap-2 border p-2 rounded bg-slate-50">
                     <Facebook size={18} className="text-blue-600"/>
-                    <input placeholder="Facebook Profile Link" className="bg-transparent outline-none w-full text-sm" value={formData.socialLinks.facebook} onChange={e => setFormData({...formData, socialLinks: {...formData.socialLinks, facebook: e.target.value}})} />
+                    <input placeholder="Facebook Link" className="bg-transparent outline-none w-full text-sm" value={formData.socialLinks.facebook} onChange={e => setFormData({...formData, socialLinks: {...formData.socialLinks, facebook: e.target.value}})} />
                  </div>
                  <div className="flex items-center gap-2 border p-2 rounded bg-slate-50">
                     <Twitter size={18} className="text-sky-500"/>
-                    <input placeholder="Twitter/X Profile Link" className="bg-transparent outline-none w-full text-sm" value={formData.socialLinks.twitter} onChange={e => setFormData({...formData, socialLinks: {...formData.socialLinks, twitter: e.target.value}})} />
+                    <input placeholder="Twitter Link" className="bg-transparent outline-none w-full text-sm" value={formData.socialLinks.twitter} onChange={e => setFormData({...formData, socialLinks: {...formData.socialLinks, twitter: e.target.value}})} />
                  </div>
                  <div className="flex items-center gap-2 border p-2 rounded bg-slate-50">
                     <Instagram size={18} className="text-pink-600"/>
-                    <input placeholder="Instagram Profile Link" className="bg-transparent outline-none w-full text-sm" value={formData.socialLinks.instagram} onChange={e => setFormData({...formData, socialLinks: {...formData.socialLinks, instagram: e.target.value}})} />
+                    <input placeholder="Instagram Link" className="bg-transparent outline-none w-full text-sm" value={formData.socialLinks.instagram} onChange={e => setFormData({...formData, socialLinks: {...formData.socialLinks, instagram: e.target.value}})} />
                  </div>
              </div>
           </div>
@@ -582,12 +501,12 @@ const RegisterPage = ({ initialAuth, onCancel, onComplete, onGoToLogin }: Regist
             <h3 className="font-semibold text-slate-900 border-b pb-2">Identity Proof (Aadhaar Card)</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="border-2 border-dashed border-slate-300 rounded-lg p-4 text-center hover:bg-slate-50 transition-colors">
-                    <p className="mb-2 font-medium text-slate-600">Front Side</p>
+                    <p className="mb-2 font-medium text-slate-600">Front Side <span className="text-red-500">*</span></p>
                     {aadhaarFront ? <img src={aadhaarFront} className="h-32 mx-auto object-contain mb-2" /> : <CreditCard className="h-10 w-10 mx-auto text-slate-300 mb-2"/>}
                     <input type="file" accept="image/*" required onChange={(e) => handleFileChange(e, setAadhaarFront)} className="block w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-md file:bg-slate-100"/>
                 </div>
                 <div className="border-2 border-dashed border-slate-300 rounded-lg p-4 text-center hover:bg-slate-50 transition-colors">
-                    <p className="mb-2 font-medium text-slate-600">Back Side</p>
+                    <p className="mb-2 font-medium text-slate-600">Back Side <span className="text-red-500">*</span></p>
                     {aadhaarBack ? <img src={aadhaarBack} className="h-32 mx-auto object-contain mb-2" /> : <CreditCard className="h-10 w-10 mx-auto text-slate-300 mb-2"/>}
                     <input type="file" accept="image/*" required onChange={(e) => handleFileChange(e, setAadhaarBack)} className="block w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-md file:bg-slate-100"/>
                 </div>
@@ -595,13 +514,15 @@ const RegisterPage = ({ initialAuth, onCancel, onComplete, onGoToLogin }: Regist
           </div>
 
           <div className="md:col-span-2 pt-6 border-t mt-4 flex justify-between gap-4 items-center">
-             <p className="text-slate-600 text-sm">
-                Already have an account?{' '}
-                <button type="button" onClick={onGoToLogin} className="text-blue-600 font-bold hover:underline">Login here</button>
-             </p>
-             <div className="flex gap-4">
+             {!isAdminMode && (
+                 <p className="text-slate-600 text-sm">
+                    Already have an account?{' '}
+                    <button type="button" onClick={onGoToLogin} className="text-blue-600 font-bold hover:underline">Login here</button>
+                 </p>
+             )}
+             <div className="flex gap-4 ml-auto">
                 <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
-                <Button type="submit" isLoading={loading}>Submit Application</Button>
+                <Button type="submit" isLoading={loading}>{isAdminMode ? 'Create Member' : 'Submit Application'}</Button>
             </div>
           </div>
         </form>
@@ -616,15 +537,22 @@ const AdminDashboard = ({ currentUser }: { currentUser: User }) => {
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [viewMode, setViewMode] = useState<'details' | 'id' | 'letter' | 'edit'>('details');
-  const [activePanel, setActivePanel] = useState<'users' | 'media' | 'settings'>('users');
+  const [viewMode, setViewMode] = useState<'details' | 'id' | 'letter' | 'edit' | 'create'>('details');
+  const [activePanel, setActivePanel] = useState<'users' | 'broadcast' | 'settings'>('users');
   const [isProcessing, setIsProcessing] = useState(false);
   const [orgAssets, setOrgAssets] = useState<OrganizationAssets>({});
+  
+  // Broadcast State
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
+  const [postContent, setPostContent] = useState('');
+  const [postImage, setPostImage] = useState<string | null>(null);
   
   // Edit State
   const [editForm, setEditForm] = useState<any>(null);
   const [editPhoto, setEditPhoto] = useState<string | null>(null);
   const [editSocials, setEditSocials] = useState<any>({});
+  const [editPassword, setEditPassword] = useState('');
 
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -633,6 +561,7 @@ const AdminDashboard = ({ currentUser }: { currentUser: User }) => {
     setUsers(allUsers);
     setFilteredUsers(allUsers);
     setOrgAssets(getOrgAssets());
+    setPosts(getPosts());
   }, []);
 
   useEffect(() => {
@@ -643,6 +572,67 @@ const AdminDashboard = ({ currentUser }: { currentUser: User }) => {
         u.details.district.toLowerCase().includes(term)
     ));
   }, [searchTerm, users]);
+
+  // Post Handlers
+  const handleEditPost = (post: Post) => {
+      setEditingPostId(post.id);
+      setPostContent(post.content);
+      setPostImage(post.imageUrl || null);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelEditPost = () => {
+      setEditingPostId(null);
+      setPostContent('');
+      setPostImage(null);
+  };
+
+  const handleSavePost = () => {
+      if(!postContent && !postImage) return;
+
+      if (editingPostId) {
+          // Update existing post
+          const updatedPost: Post = {
+              id: editingPostId,
+              content: postContent,
+              imageUrl: postImage || undefined,
+              timestamp: new Date().toISOString(), // Optional: Update timestamp on edit? Let's keep original or update. Updating timestamp puts it to top usually if sort by time. Let's keep simple.
+              author: 'Admin'
+          };
+          updatePost(updatedPost);
+          setPosts(posts.map(p => p.id === editingPostId ? updatedPost : p));
+          alert("Post updated successfully.");
+      } else {
+          // Create new post
+          const newPost: Post = {
+              id: Date.now().toString(),
+              content: postContent,
+              imageUrl: postImage || undefined,
+              timestamp: new Date().toISOString(),
+              author: 'Admin'
+          };
+          savePost(newPost);
+          setPosts([newPost, ...posts]);
+          alert("Post published to all users.");
+      }
+      
+      handleCancelEditPost();
+  };
+
+  const handleDeletePost = (id: string) => {
+      if(confirm("Delete this post?")) {
+          deletePost(id);
+          setPosts(posts.filter(p => p.id !== id));
+          if (editingPostId === id) handleCancelEditPost();
+      }
+  };
+
+  // Theme Handler
+  const handleThemeChange = (theme: string) => {
+      const newAssets = { ...orgAssets, idCardTheme: theme as any };
+      setOrgAssets(newAssets);
+      saveOrgAssets(newAssets);
+  };
 
   const handleStatusChange = async (user: User, status: UserStatus) => {
     setIsProcessing(true);
@@ -667,6 +657,7 @@ const AdminDashboard = ({ currentUser }: { currentUser: User }) => {
       setEditForm({ ...user.details });
       setEditSocials({ ...user.socialLinks });
       setEditPhoto(user.details.photoUrl);
+      setEditPassword(user.password || '');
       setViewMode('edit');
   };
 
@@ -675,29 +666,14 @@ const AdminDashboard = ({ currentUser }: { currentUser: User }) => {
       const updatedUser: User = {
           ...selectedUser,
           details: { ...editForm, photoUrl: editPhoto || selectedUser.details.photoUrl },
-          socialLinks: editSocials
+          socialLinks: editSocials,
+          password: editPassword // Save password
       };
       saveUser(updatedUser);
       setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
       setSelectedUser(updatedUser);
       setViewMode('details');
       alert("Member details updated successfully!");
-  };
-
-  const handleRegenerateLetter = async (user: User) => {
-      if(!confirm("Are you sure you want to regenerate the joining letter? This will overwrite the existing one.")) return;
-      setIsProcessing(true);
-      try {
-          const content = await generateJoiningLetterContent(user);
-          const updatedUser = { ...user, documents: { ...user.documents, joiningLetterContent: content, generatedAt: new Date().toISOString() } };
-          saveUser(updatedUser);
-          setUsers(prev => prev.map(u => u.id === user.id ? updatedUser : u));
-          setSelectedUser(updatedUser);
-      } catch (e) {
-          alert("Failed to regenerate letter");
-      } finally {
-          setIsProcessing(false);
-      }
   };
 
   const generateBlob = async (format: 'jpg' | 'pdf'): Promise<Blob | null> => {
@@ -724,36 +700,10 @@ const AdminDashboard = ({ currentUser }: { currentUser: User }) => {
       setIsProcessing(false);
   };
 
-  const handleShare = async (userName: string) => {
-     setIsProcessing(true);
-     try {
-        const blob = await generateBlob('jpg');
-        if (blob) {
-            const file = new File([blob], `BMBM-${userName}-ID.jpg`, { type: blob.type });
-            if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                await navigator.share({
-                    files: [file],
-                    title: 'BMBM Member Identity',
-                    text: `Official Identity document for ${userName}.`
-                });
-            } else {
-                alert("Mobile sharing not supported. File downloaded for manual sharing.");
-                handleDownload('jpg', userName);
-            }
-        }
-     } catch (e) {
-         console.error(e);
-         alert("Sharing failed.");
-     }
-     setIsProcessing(false);
-  };
-
   const handleLogout = () => {
       setCurrentUser(null);
       window.location.reload();
   };
-
-  const pendingMediaCount = users.reduce((acc, user) => acc + user.gallery.filter(m => !m.approved).length, 0);
 
   return (
     <div className="flex flex-col h-screen bg-slate-50 overflow-hidden">
@@ -764,10 +714,7 @@ const AdminDashboard = ({ currentUser }: { currentUser: User }) => {
         </h2>
         <div className="flex bg-slate-100 p-1 rounded-lg">
             <button onClick={() => setActivePanel('users')} className={`px-4 py-2 rounded-md text-sm font-medium ${activePanel === 'users' ? 'bg-white shadow text-blue-600' : 'text-slate-500'}`}>Members</button>
-            <button onClick={() => setActivePanel('media')} className={`px-4 py-2 rounded-md text-sm font-medium flex gap-2 items-center ${activePanel === 'media' ? 'bg-white shadow text-blue-600' : 'text-slate-500'}`}>
-                Gallery
-                {pendingMediaCount > 0 && <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">{pendingMediaCount}</span>}
-            </button>
+            <button onClick={() => setActivePanel('broadcast')} className={`px-4 py-2 rounded-md text-sm font-medium ${activePanel === 'broadcast' ? 'bg-white shadow text-blue-600' : 'text-slate-500'}`}>News & Updates</button>
             <button onClick={() => setActivePanel('settings')} className={`px-4 py-2 rounded-md text-sm font-medium ${activePanel === 'settings' ? 'bg-white shadow text-blue-600' : 'text-slate-500'}`}>Settings</button>
         </div>
         <button onClick={handleLogout} className="flex items-center gap-2 text-slate-600 hover:text-red-600 font-medium bg-slate-100 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors">
@@ -777,255 +724,302 @@ const AdminDashboard = ({ currentUser }: { currentUser: User }) => {
       </div>
 
       <div className="flex-1 overflow-hidden flex">
+        {/* SETTINGS PANEL */}
         {activePanel === 'settings' && (
             <div className="p-8 w-full overflow-y-auto">
                  <div className="max-w-4xl mx-auto bg-white p-6 rounded-xl shadow border">
-                     <h3 className="text-lg font-bold mb-4">Organization Assets</h3>
-                     <p className="text-slate-500 mb-4">Manage Logos, Stamps, Signatures and Footer Links.</p>
-                     {/* Asset uploading Logic reused from previous version, omitted for brevity as requirement focused on User/Admin logic */}
-                     <div className="text-sm text-slate-400">Settings panel functionality remains same as previous version.</div>
+                     <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><Palette size={20}/> ID Card Theme</h3>
+                     <p className="text-slate-500 mb-6">Select the color template for all member ID cards.</p>
+                     
+                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                         {[
+                             { id: 'patriotic', name: 'Patriotic (Default)', from: 'from-orange-600', to: 'to-green-700' },
+                             { id: 'blue', name: 'Professional Blue', from: 'from-blue-700', to: 'to-indigo-800' },
+                             { id: 'dark', name: 'Executive Dark', from: 'from-slate-800', to: 'to-slate-900' },
+                             { id: 'red', name: 'Bold Red', from: 'from-red-700', to: 'to-red-900' },
+                             { id: 'minimal', name: 'Minimalist', from: 'from-slate-200', to: 'to-slate-300' }
+                         ].map(theme => (
+                             <div 
+                                key={theme.id}
+                                onClick={() => handleThemeChange(theme.id)}
+                                className={`cursor-pointer border-2 rounded-xl p-4 transition-all ${orgAssets.idCardTheme === theme.id ? 'border-blue-500 ring-2 ring-blue-200' : 'border-slate-200 hover:border-slate-300'}`}
+                             >
+                                 <div className={`h-16 rounded-lg bg-gradient-to-r ${theme.from} ${theme.to} mb-3 shadow-sm`}></div>
+                                 <p className="font-bold text-slate-800 text-sm">{theme.name}</p>
+                             </div>
+                         ))}
+                     </div>
+
+                     <div className="pt-6 border-t">
+                        <h3 className="text-lg font-bold mb-4">Organization Assets</h3>
+                        <p className="text-sm text-slate-400">Manage Logos and Signatures (Same as before).</p>
+                     </div>
                  </div>
             </div>
         )}
 
-        {activePanel === 'media' && (
-            <div className="p-8 w-full overflow-y-auto">
-                <h3 className="text-2xl font-bold mb-6">Media Approval Queue</h3>
-                {pendingMediaCount === 0 ? <div className="text-center text-slate-400 py-20">No pending media.</div> : (
-                     <div className="grid grid-cols-3 gap-6">
-                        {/* Media Grid Logic reused */}
-                        <div className="col-span-3 text-center text-slate-500">Check previous logic for media grid. Placeholder.</div>
-                     </div>
-                )}
+        {/* BROADCAST PANEL */}
+        {activePanel === 'broadcast' && (
+            <div className="p-8 w-full overflow-y-auto bg-slate-100">
+                <div className="max-w-2xl mx-auto">
+                    <div className="bg-white p-6 rounded-xl shadow-md mb-8">
+                        <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                            <Newspaper size={20}/> 
+                            {editingPostId ? 'Edit Post' : 'Create News Post'}
+                        </h3>
+                        <textarea 
+                            className="w-full border p-3 rounded-lg mb-4 h-32" 
+                            placeholder="Write an update for all members..."
+                            value={postContent}
+                            onChange={e => setPostContent(e.target.value)}
+                        />
+                        <div className="flex justify-between items-center">
+                             <div className="flex items-center gap-4">
+                                <label className="cursor-pointer bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+                                    <ImageIcon size={16}/> {postImage ? 'Change Image' : 'Add Photo'}
+                                    <input type="file" accept="image/*" className="hidden" onChange={async (e) => { if(e.target.files?.[0]) setPostImage(await compressImage(e.target.files[0])) }} />
+                                </label>
+                                {postImage && <img src={postImage} className="h-10 w-10 rounded object-cover border"/>}
+                                {postImage && <button onClick={() => setPostImage(null)} className="text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 size={16}/></button>}
+                             </div>
+                             <div className="flex gap-2">
+                                {editingPostId && (
+                                    <Button variant="outline" onClick={handleCancelEditPost}>Cancel</Button>
+                                )}
+                                <Button onClick={handleSavePost} disabled={!postContent && !postImage}>
+                                    {editingPostId ? 'Update Post' : 'Publish Post'}
+                                </Button>
+                             </div>
+                        </div>
+                    </div>
+
+                    <h3 className="font-bold text-slate-700 mb-4">All Posts</h3>
+                    <div className="space-y-4">
+                        {posts.map(post => (
+                            <div key={post.id} className="bg-white p-4 rounded-xl shadow border border-slate-200 relative group">
+                                <div className="absolute top-2 right-2 flex gap-1 bg-white p-1 rounded shadow-sm border border-slate-100">
+                                    <button onClick={() => handleEditPost(post)} className="text-slate-400 hover:text-blue-600 p-1"><Edit2 size={16}/></button>
+                                    <button onClick={() => handleDeletePost(post.id)} className="text-slate-400 hover:text-red-500 p-1"><Trash2 size={16}/></button>
+                                </div>
+                                <div className="flex items-center gap-2 mb-2">
+                                    <Shield size={16} className="text-blue-600"/>
+                                    <span className="font-bold text-sm text-slate-800">Admin</span>
+                                    <span className="text-xs text-slate-400">{new Date(post.timestamp).toLocaleDateString()}</span>
+                                </div>
+                                {post.imageUrl && <img src={post.imageUrl} className="w-full h-64 object-cover rounded-lg mb-3 border"/>}
+                                <p className="text-slate-700 whitespace-pre-wrap">{post.content}</p>
+                            </div>
+                        ))}
+                        {posts.length === 0 && <p className="text-center text-slate-400">No posts yet.</p>}
+                    </div>
+                </div>
             </div>
         )}
 
+        {/* USERS PANEL */}
         {activePanel === 'users' && (
             <>
-                {/* User List Sidebar */}
-                <div className="w-96 bg-white border-r border-slate-200 flex flex-col">
-                    <div className="p-4 border-b">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-2.5 text-slate-400 w-4 h-4" />
-                            <input 
-                                type="text" placeholder="Search ID or Name..." 
-                                className="w-full pl-9 pr-4 py-2 bg-slate-100 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                                value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                            />
-                        </div>
-                    </div>
-                    <div className="flex-1 overflow-y-auto">
-                        {filteredUsers.map(user => (
-                            <div key={user.id} onClick={() => { setSelectedUser(user); setViewMode('details'); }}
-                                className={`p-4 border-b hover:bg-slate-50 cursor-pointer flex items-center gap-3 ${selectedUser?.id === user.id ? 'bg-blue-50 border-l-4 border-l-blue-600' : ''}`}
-                            >
-                                <img src={user.details.photoUrl} className="w-10 h-10 rounded-full object-cover bg-slate-200" />
-                                <div className="flex-1 min-w-0">
-                                    <p className="font-semibold text-slate-800 truncate">{user.details.fullName}</p>
-                                    <p className="text-xs text-slate-500 truncate">{user.edNumber}</p>
+                {viewMode === 'create' ? (
+                     <div className="flex-1 overflow-y-auto bg-slate-50">
+                        <RegisterPage 
+                            isAdminMode={true} 
+                            onCancel={() => setViewMode('details')} 
+                            onComplete={(newUser) => {
+                                setUsers([...users, newUser]);
+                                setFilteredUsers([...users, newUser]);
+                                setSelectedUser(newUser);
+                                setViewMode('details');
+                                alert("User created successfully!");
+                            }} 
+                        />
+                     </div>
+                ) : (
+                    <>
+                        {/* User List Sidebar */}
+                        <div className="w-96 bg-white border-r border-slate-200 flex flex-col">
+                            <div className="p-4 border-b space-y-3">
+                                <Button onClick={() => { setSelectedUser(null); setViewMode('create'); }} className="w-full justify-center">
+                                    <UserPlus size={16}/> Create New Member
+                                </Button>
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-2.5 text-slate-400 w-4 h-4" />
+                                    <input 
+                                        type="text" placeholder="Search ID, Name..." 
+                                        className="w-full pl-9 pr-4 py-2 bg-slate-100 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                                        value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                                    />
                                 </div>
-                                {user.status === UserStatus.PENDING ? <span className="w-2 h-2 bg-yellow-500 rounded-full" /> : <span className="w-2 h-2 bg-green-500 rounded-full" />}
                             </div>
-                        ))}
-                    </div>
-                </div>
+                            <div className="flex-1 overflow-y-auto">
+                                {filteredUsers.map(user => (
+                                    <div key={user.id} onClick={() => { setSelectedUser(user); setViewMode('details'); }}
+                                        className={`p-4 border-b hover:bg-slate-50 cursor-pointer flex items-center gap-3 ${selectedUser?.id === user.id ? 'bg-blue-50 border-l-4 border-l-blue-600' : ''}`}
+                                    >
+                                        <img src={user.details.photoUrl} className="w-10 h-10 rounded-full object-cover bg-slate-200" />
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-semibold text-slate-800 truncate">{user.details.fullName}</p>
+                                            <p className="text-xs text-slate-500 truncate">{user.details.mobile}</p>
+                                        </div>
+                                        {user.status === UserStatus.PENDING ? <span className="w-2 h-2 bg-yellow-500 rounded-full" /> : <span className="w-2 h-2 bg-green-500 rounded-full" />}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
 
-                {/* User Detail View */}
-                <div className="flex-1 bg-slate-50 overflow-y-auto">
-                    {selectedUser ? (
-                        <div className="p-8 max-w-4xl mx-auto">
-                            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6">
-                                <div className="p-6 border-b flex justify-between items-start">
-                                    <div className="flex gap-4">
-                                        <img src={selectedUser.details.photoUrl} className="w-24 h-24 rounded-lg object-cover border shadow-sm" />
-                                        <div>
-                                            <h1 className="text-2xl font-bold text-slate-900">{selectedUser.details.fullName}</h1>
-                                            <p className="text-slate-500">{selectedUser.details.designation}</p>
-                                            <div className="mt-2 flex gap-2">
-                                                <span className="px-2 py-1 bg-slate-100 rounded text-xs font-mono">{selectedUser.edNumber}</span>
-                                                <span className={`px-2 py-1 rounded text-xs font-bold ${selectedUser.status === UserStatus.PENDING ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
-                                                    {selectedUser.status === UserStatus.PENDING ? 'PAYMENT PENDING' : 'PREMIUM MEMBER'}
-                                                </span>
+                        {/* User Detail View */}
+                        <div className="flex-1 bg-slate-50 overflow-y-auto">
+                            {selectedUser ? (
+                                <div className="p-8 max-w-4xl mx-auto">
+                                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6">
+                                        <div className="p-6 border-b flex justify-between items-start">
+                                            <div className="flex gap-4">
+                                                <img src={selectedUser.details.photoUrl} className="w-24 h-24 rounded-lg object-cover border shadow-sm" />
+                                                <div>
+                                                    <h1 className="text-2xl font-bold text-slate-900">{selectedUser.details.fullName}</h1>
+                                                    <p className="text-slate-500">{selectedUser.details.designation}</p>
+                                                    <div className="mt-2 flex gap-2">
+                                                        <span className="px-2 py-1 bg-slate-100 rounded text-xs font-mono">{selectedUser.edNumber}</span>
+                                                        <span className={`px-2 py-1 rounded text-xs font-bold ${selectedUser.status === UserStatus.PENDING ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
+                                                            {selectedUser.status === UserStatus.PENDING ? 'PAYMENT PENDING' : 'PREMIUM MEMBER'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                {viewMode === 'edit' ? (
+                                                    <Button variant="outline" onClick={() => setViewMode('details')}>Cancel Edit</Button>
+                                                ) : (
+                                                    <>
+                                                        {selectedUser.status === UserStatus.PENDING && (
+                                                            <>
+                                                                <Button variant="success" onClick={() => handleStatusChange(selectedUser, UserStatus.APPROVED)} isLoading={isProcessing}>Verify Payment & Approve</Button>
+                                                                <Button variant="danger" onClick={() => handleStatusChange(selectedUser, UserStatus.REJECTED)} isLoading={isProcessing}>Reject</Button>
+                                                            </>
+                                                        )}
+                                                        <Button variant="primary" onClick={() => handleEditInit(selectedUser)}><Edit2 size={16}/> Edit Member</Button>
+                                                        {selectedUser.status === UserStatus.APPROVED && (
+                                                            <>
+                                                                <Button variant="outline" onClick={() => setViewMode(viewMode === 'id' ? 'details' : 'id')}>
+                                                                    {viewMode === 'id' ? 'Details' : 'Preview ID'}
+                                                                </Button>
+                                                                <Button variant="outline" onClick={() => setViewMode(viewMode === 'letter' ? 'details' : 'letter')}>
+                                                                    {viewMode === 'letter' ? 'Details' : 'Letter'}
+                                                                </Button>
+                                                            </>
+                                                        )}
+                                                    </>
+                                                )}
                                             </div>
                                         </div>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        {viewMode === 'edit' ? (
-                                            <Button variant="outline" onClick={() => setViewMode('details')}>Cancel Edit</Button>
-                                        ) : (
-                                            <>
-                                                {selectedUser.status === UserStatus.PENDING && (
-                                                    <>
-                                                        <Button variant="success" onClick={() => handleStatusChange(selectedUser, UserStatus.APPROVED)} isLoading={isProcessing}>Verify Payment & Approve</Button>
-                                                        <Button variant="danger" onClick={() => handleStatusChange(selectedUser, UserStatus.REJECTED)} isLoading={isProcessing}>Reject</Button>
-                                                    </>
-                                                )}
-                                                <Button variant="primary" onClick={() => handleEditInit(selectedUser)}><Edit2 size={16}/> Edit Member</Button>
-                                                {selectedUser.status === UserStatus.APPROVED && (
-                                                    <>
-                                                        <Button variant="outline" onClick={() => setViewMode(viewMode === 'id' ? 'details' : 'id')}>
-                                                            {viewMode === 'id' ? 'Details' : 'Preview ID'}
-                                                        </Button>
-                                                        <Button variant="outline" onClick={() => setViewMode(viewMode === 'letter' ? 'details' : 'letter')}>
-                                                            {viewMode === 'letter' ? 'Details' : 'Letter'}
-                                                        </Button>
-                                                        <button onClick={() => handleRegenerateLetter(selectedUser)} disabled={isProcessing} className="p-2 text-slate-400 hover:text-blue-600 transition-colors" title="Regenerate Letter">
-                                                            <RefreshCw size={20} className={isProcessing ? "animate-spin" : ""} />
-                                                        </button>
-                                                    </>
-                                                )}
-                                            </>
+
+                                        {viewMode === 'edit' && editForm && (
+                                            <div className="p-6 bg-slate-50">
+                                                <h3 className="font-bold text-lg mb-4 text-slate-800 flex items-center gap-2"><PenTool size={18}/> Full Member Control</h3>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    {/* Admin Controls */}
+                                                    <div className="col-span-2 text-xs font-bold text-red-500 uppercase border-b mt-2 mb-1">Admin Security</div>
+                                                    <div className="col-span-2">
+                                                        <label className="text-sm font-semibold text-slate-600">Reset Password</label>
+                                                        <input className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500" value={editPassword} onChange={e => setEditPassword(e.target.value)} placeholder="Enter new password"/>
+                                                    </div>
+
+                                                    {/* Personal Details */}
+                                                    <div className="col-span-2 text-xs font-bold text-slate-400 uppercase border-b mt-2 mb-1">Personal Info</div>
+                                                    <div>
+                                                        <label className="text-sm font-semibold text-slate-600">Full Name</label>
+                                                        <input className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500" value={editForm.fullName} onChange={e => setEditForm({...editForm, fullName: e.target.value})}/>
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-sm font-semibold text-slate-600">Mobile</label>
+                                                        <input className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500" value={editForm.mobile} onChange={e => setEditForm({...editForm, mobile: e.target.value})}/>
+                                                    </div>
+
+                                                    {/* Organization Info */}
+                                                    <div className="col-span-2 text-xs font-bold text-slate-400 uppercase border-b mt-2 mb-1">Organization Info</div>
+                                                    <div>
+                                                        <label className="text-sm font-semibold text-slate-600">Department</label>
+                                                        <input className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500" value={editForm.department} onChange={e => setEditForm({...editForm, department: e.target.value})}/>
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-sm font-semibold text-slate-600">Designation</label>
+                                                        <input className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500" value={editForm.designation} onChange={e => setEditForm({...editForm, designation: e.target.value})}/>
+                                                    </div>
+                                                    
+                                                    {/* Social Links */}
+                                                    <div className="col-span-2 text-xs font-bold text-slate-400 uppercase border-b mt-2 mb-1">Digital ID Links</div>
+                                                    <div>
+                                                        <label className="text-sm font-semibold text-slate-600">Facebook</label>
+                                                        <input className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500" value={editSocials.facebook || ''} onChange={e => setEditSocials({...editSocials, facebook: e.target.value})}/>
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-sm font-semibold text-slate-600">Twitter/X</label>
+                                                        <input className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500" value={editSocials.twitter || ''} onChange={e => setEditSocials({...editSocials, twitter: e.target.value})}/>
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-sm font-semibold text-slate-600">Instagram</label>
+                                                        <input className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500" value={editSocials.instagram || ''} onChange={e => setEditSocials({...editSocials, instagram: e.target.value})}/>
+                                                    </div>
+
+                                                    <div className="col-span-2 mt-2">
+                                                        <label className="text-sm font-semibold text-slate-600">Update Photo</label>
+                                                        <input type="file" className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:bg-blue-50 file:text-blue-700" 
+                                                          onChange={async (e) => { if(e.target.files?.[0]) setEditPhoto(await compressImage(e.target.files[0])); }} 
+                                                        />
+                                                        {editPhoto && <img src={editPhoto} className="h-20 mt-2 rounded border"/>}
+                                                    </div>
+                                                </div>
+                                                <div className="mt-6 pt-4 border-t flex justify-end">
+                                                    <Button variant="primary" onClick={handleEditSave}><Save size={16}/> Save Changes</Button>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {viewMode === 'details' && (
+                                            <div className="p-6 grid grid-cols-2 gap-6">
+                                                <div>
+                                                    <h4 className="font-semibold text-slate-700 mb-3 border-b pb-2">Personal Information</h4>
+                                                    <div className="space-y-2 text-sm">
+                                                        <p><span className="text-slate-500 block">Father/Husband:</span> {selectedUser.details.fatherName}</p>
+                                                        <p><span className="text-slate-500 block">DOB:</span> {selectedUser.details.dob}</p>
+                                                        <p><span className="text-slate-500 block">Mobile:</span> {selectedUser.details.mobile}</p>
+                                                        <p><span className="text-slate-500 block">Email:</span> {selectedUser.email || 'N/A'}</p>
+                                                        <p><span className="text-slate-500 block">Address:</span> {selectedUser.details.district}, {selectedUser.details.state}</p>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <h4 className="font-semibold text-slate-700 mb-3 border-b pb-2">Credentials</h4>
+                                                    <div className="space-y-2 text-sm">
+                                                        <p><span className="text-slate-500 block">Password:</span> {selectedUser.password}</p>
+                                                        <p><span className="text-slate-500 block">Login ID:</span> {selectedUser.details.mobile}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {(viewMode === 'id' || viewMode === 'letter') && (
+                                            <div className="flex flex-col items-center p-6 bg-slate-100">
+                                                <div className="flex gap-2 mb-4">
+                                                    <Button variant="primary" size="sm" onClick={() => handleDownload('jpg', selectedUser.details.fullName)} isLoading={isProcessing}>
+                                                        <Download size={14}/> Download JPG
+                                                    </Button>
+                                                </div>
+                                                <div className="inline-block shadow-lg bg-white" ref={printRef}>
+                                                    {viewMode === 'id' ? (
+                                                        <div className="scale-90 origin-top"><IdCard user={selectedUser} assets={orgAssets} /></div>
+                                                    ) : (
+                                                        <div className="scale-75 origin-top"><JoiningLetter user={selectedUser} assets={orgAssets} /></div>
+                                                    )}
+                                                </div>
+                                            </div>
                                         )}
                                     </div>
                                 </div>
-
-                                {viewMode === 'edit' && editForm && (
-                                    <div className="p-6 bg-slate-50">
-                                        <h3 className="font-bold text-lg mb-4 text-slate-800 flex items-center gap-2"><PenTool size={18}/> Full Member Control</h3>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            {/* Personal Details */}
-                                            <div className="col-span-2 text-xs font-bold text-slate-400 uppercase border-b mt-2 mb-1">Personal Info</div>
-                                            <div>
-                                                <label className="text-sm font-semibold text-slate-600">Full Name</label>
-                                                <input className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500" value={editForm.fullName} onChange={e => setEditForm({...editForm, fullName: e.target.value})}/>
-                                            </div>
-                                            <div>
-                                                <label className="text-sm font-semibold text-slate-600">Father/Husband Name</label>
-                                                <input className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500" value={editForm.fatherName} onChange={e => setEditForm({...editForm, fatherName: e.target.value})}/>
-                                            </div>
-                                            <div>
-                                                <label className="text-sm font-semibold text-slate-600">Date of Birth</label>
-                                                <input type="date" className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500" value={editForm.dob} onChange={e => setEditForm({...editForm, dob: e.target.value})}/>
-                                            </div>
-                                            <div>
-                                                <label className="text-sm font-semibold text-slate-600">Mobile</label>
-                                                <input className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500" value={editForm.mobile} onChange={e => setEditForm({...editForm, mobile: e.target.value})}/>
-                                            </div>
-
-                                            {/* Organization Info */}
-                                            <div className="col-span-2 text-xs font-bold text-slate-400 uppercase border-b mt-2 mb-1">Organization Info</div>
-                                            <div>
-                                                <label className="text-sm font-semibold text-slate-600">Department</label>
-                                                <input className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500" value={editForm.department} onChange={e => setEditForm({...editForm, department: e.target.value})}/>
-                                            </div>
-                                            <div>
-                                                <label className="text-sm font-semibold text-slate-600">Designation</label>
-                                                <input className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500" value={editForm.designation} onChange={e => setEditForm({...editForm, designation: e.target.value})}/>
-                                            </div>
-
-                                            {/* Address Info */}
-                                            <div className="col-span-2 text-xs font-bold text-slate-400 uppercase border-b mt-2 mb-1">Address Details</div>
-                                            <div>
-                                                <label className="text-sm font-semibold text-slate-600">Village/Mohalla</label>
-                                                <input className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500" value={editForm.village} onChange={e => setEditForm({...editForm, village: e.target.value})}/>
-                                            </div>
-                                            <div>
-                                                <label className="text-sm font-semibold text-slate-600">Post</label>
-                                                <input className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500" value={editForm.post} onChange={e => setEditForm({...editForm, post: e.target.value})}/>
-                                            </div>
-                                            <div>
-                                                <label className="text-sm font-semibold text-slate-600">Block</label>
-                                                <input className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500" value={editForm.block} onChange={e => setEditForm({...editForm, block: e.target.value})}/>
-                                            </div>
-                                            <div>
-                                                <label className="text-sm font-semibold text-slate-600">District</label>
-                                                <input className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500" value={editForm.district} onChange={e => setEditForm({...editForm, district: e.target.value})}/>
-                                            </div>
-                                            <div>
-                                                <label className="text-sm font-semibold text-slate-600">State</label>
-                                                <input className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500" value={editForm.state} onChange={e => setEditForm({...editForm, state: e.target.value})}/>
-                                            </div>
-
-                                            {/* Social Links */}
-                                            <div className="col-span-2 text-xs font-bold text-slate-400 uppercase border-b mt-2 mb-1">Digital ID Links</div>
-                                            <div>
-                                                <label className="text-sm font-semibold text-slate-600">Facebook</label>
-                                                <input className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500" value={editSocials.facebook || ''} onChange={e => setEditSocials({...editSocials, facebook: e.target.value})}/>
-                                            </div>
-                                            <div>
-                                                <label className="text-sm font-semibold text-slate-600">Twitter/X</label>
-                                                <input className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500" value={editSocials.twitter || ''} onChange={e => setEditSocials({...editSocials, twitter: e.target.value})}/>
-                                            </div>
-                                            <div>
-                                                <label className="text-sm font-semibold text-slate-600">Instagram</label>
-                                                <input className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500" value={editSocials.instagram || ''} onChange={e => setEditSocials({...editSocials, instagram: e.target.value})}/>
-                                            </div>
-
-                                            <div className="col-span-2 mt-2">
-                                                <label className="text-sm font-semibold text-slate-600">Update Photo</label>
-                                                <input type="file" className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:bg-blue-50 file:text-blue-700" 
-                                                  onChange={async (e) => { if(e.target.files?.[0]) setEditPhoto(await compressImage(e.target.files[0])); }} 
-                                                />
-                                                {editPhoto && <img src={editPhoto} className="h-20 mt-2 rounded border"/>}
-                                            </div>
-                                        </div>
-                                        <div className="mt-6 pt-4 border-t flex justify-end">
-                                            <Button variant="primary" onClick={handleEditSave}><Save size={16}/> Save Changes</Button>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {viewMode === 'details' && (
-                                    <div className="p-6 grid grid-cols-2 gap-6">
-                                        <div>
-                                            <h4 className="font-semibold text-slate-700 mb-3 border-b pb-2">Personal Information</h4>
-                                            <div className="space-y-2 text-sm">
-                                                <p><span className="text-slate-500 block">Father/Husband:</span> {selectedUser.details.fatherName}</p>
-                                                <p><span className="text-slate-500 block">DOB:</span> {selectedUser.details.dob}</p>
-                                                <p><span className="text-slate-500 block">Mobile:</span> {selectedUser.details.mobile}</p>
-                                            </div>
-                                            <h4 className="font-semibold text-slate-700 mt-6 mb-3 border-b pb-2">Address</h4>
-                                            <div className="text-sm text-slate-600">
-                                                {selectedUser.details.village}, {selectedUser.details.post}, {selectedUser.details.block}, {selectedUser.details.district}, {selectedUser.details.state}
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <h4 className="font-semibold text-slate-700 mb-3 border-b pb-2">Documents</h4>
-                                            <div className="space-y-4">
-                                                <div><span className="text-xs text-slate-400">Aadhaar Front</span><img src={selectedUser.details.aadhaarFrontUrl} className="h-24 object-contain border bg-slate-100"/></div>
-                                                <div><span className="text-xs text-slate-400">Aadhaar Back</span><img src={selectedUser.details.aadhaarBackUrl} className="h-24 object-contain border bg-slate-100"/></div>
-                                            </div>
-                                            <div className="mt-4">
-                                                <h4 className="font-semibold text-slate-700 mb-2 border-b pb-1">Digital ID Links</h4>
-                                                <div className="flex gap-2">
-                                                    {selectedUser.socialLinks?.facebook && <Facebook className="text-blue-600" size={16}/>}
-                                                    {selectedUser.socialLinks?.twitter && <Twitter className="text-sky-500" size={16}/>}
-                                                    {selectedUser.socialLinks?.instagram && <Instagram className="text-pink-600" size={16}/>}
-                                                    {(!selectedUser.socialLinks?.facebook && !selectedUser.socialLinks?.twitter && !selectedUser.socialLinks?.instagram) && <span className="text-xs text-slate-400">No links added</span>}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {(viewMode === 'id' || viewMode === 'letter') && (
-                                    <div className="flex flex-col items-center p-6 bg-slate-100">
-                                        <div className="flex gap-2 mb-4">
-                                            <Button variant="primary" size="sm" onClick={() => handleDownload('jpg', selectedUser.details.fullName)} isLoading={isProcessing}>
-                                                <Download size={14}/> Download JPG
-                                            </Button>
-                                            <Button variant="primary" size="sm" onClick={() => handleDownload('pdf', selectedUser.details.fullName)} isLoading={isProcessing}>
-                                                <FileType size={14}/> Download PDF
-                                            </Button>
-                                            <Button variant="success" size="sm" onClick={() => handleShare(selectedUser.details.fullName)} isLoading={isProcessing}>
-                                                <Share2 size={14}/> Share WhatsApp
-                                            </Button>
-                                        </div>
-                                        <div className="inline-block shadow-lg bg-white" ref={printRef}>
-                                            {viewMode === 'id' ? (
-                                                <div className="scale-90 origin-top"><IdCard user={selectedUser} assets={orgAssets} /></div>
-                                            ) : (
-                                                <div className="scale-75 origin-top"><JoiningLetter user={selectedUser} assets={orgAssets} /></div>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
+                            ) : (
+                                <div className="h-full flex items-center justify-center text-slate-400">Select a member to view details</div>
+                            )}
                         </div>
-                    ) : (
-                        <div className="h-full flex items-center justify-center text-slate-400">Select a member to view details</div>
-                    )}
-                </div>
+                    </>
+                )}
             </>
         )}
       </div>
@@ -1035,20 +1029,23 @@ const AdminDashboard = ({ currentUser }: { currentUser: User }) => {
 
 // 4. USER DASHBOARD
 const UserDashboard = ({ currentUser }: { currentUser: User }) => {
-  const [activeTab, setActiveTab] = useState<'id' | 'letter' | 'application' | 'gallery' | 'profile'>('id');
+  const [activeTab, setActiveTab] = useState<'id' | 'letter' | 'application' | 'news' | 'profile'>('id');
   const [isGenerating, setIsGenerating] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [orgAssets, setOrgAssets] = useState<OrganizationAssets>({});
+  const [posts, setPosts] = useState<Post[]>([]);
   const contentRef = useRef<HTMLDivElement>(null);
   
   // Profile Edit State
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editData, setEditData] = useState(currentUser.details);
   const [password, setPassword] = useState(currentUser.password || '');
+  const [email, setEmail] = useState(currentUser.email || '');
   const [socialLinks, setSocialLinks] = useState(currentUser.socialLinks || {});
 
   useEffect(() => {
     setOrgAssets(getOrgAssets());
+    setPosts(getPosts());
   }, []);
 
   const handleLogout = () => { setCurrentUser(null); window.location.reload(); };
@@ -1058,6 +1055,7 @@ const UserDashboard = ({ currentUser }: { currentUser: User }) => {
          const updatedUser = { 
              ...currentUser, 
              details: editData,
+             email: email,
              password: password,
              socialLinks: socialLinks
          };
@@ -1157,10 +1155,11 @@ const UserDashboard = ({ currentUser }: { currentUser: User }) => {
        {/* Navigation */}
        <div className="max-w-5xl mx-auto w-full mt-6 px-4">
            <div className="bg-white p-2 rounded-xl shadow-sm flex flex-wrap gap-2 justify-center">
-               {['id', 'letter', 'application', 'gallery', 'profile'].map(tab => (
+               {['id', 'letter', 'application', 'news', 'profile'].map(tab => (
                    <button key={tab} onClick={() => setActiveTab(tab as any)} 
                     className={`px-4 py-2 rounded-lg text-sm font-medium capitalize transition-all ${activeTab === tab ? 'bg-blue-100 text-blue-700' : 'text-slate-500 hover:bg-slate-50'}`}>
-                       {tab === 'id' ? 'ID Card' : tab}
+                       {tab === 'id' ? 'ID Card' : tab === 'news' ? 'News & Updates' : tab}
+                       {tab === 'news' && posts.length > 0 && <span className="ml-2 bg-red-500 text-white text-[10px] px-1.5 rounded-full">{posts.length}</span>}
                    </button>
                ))}
            </div>
@@ -1193,10 +1192,28 @@ const UserDashboard = ({ currentUser }: { currentUser: User }) => {
                        </Button>
                    </div>
                </div>
-           ) : activeTab === 'gallery' ? (
-               <div className="max-w-4xl w-full bg-white rounded-xl shadow p-8 text-center">
-                   <h2 className="text-xl font-bold mb-4">My Gallery</h2>
-                   <p className="text-slate-500">Gallery management remains same as previous version.</p>
+           ) : activeTab === 'news' ? (
+               <div className="max-w-2xl w-full space-y-4">
+                   <h2 className="text-xl font-bold text-center mb-4">Latest Mission Updates</h2>
+                   {posts.map(post => (
+                        <div key={post.id} className="bg-white p-6 rounded-xl shadow-lg border border-slate-100 animate-in fade-in slide-in-from-bottom-4">
+                            <div className="flex items-center gap-3 mb-4">
+                                <Shield className="text-orange-600 bg-orange-100 p-1 rounded-full w-8 h-8"/>
+                                <div>
+                                    <p className="font-bold text-slate-800">Mission HQ</p>
+                                    <p className="text-xs text-slate-500">{new Date(post.timestamp).toLocaleDateString()}</p>
+                                </div>
+                            </div>
+                            {post.imageUrl && <img src={post.imageUrl} className="w-full h-72 object-cover rounded-lg mb-4 border" />}
+                            <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">{post.content}</p>
+                        </div>
+                   ))}
+                   {posts.length === 0 && (
+                       <div className="text-center bg-white p-8 rounded-xl shadow">
+                           <Bell className="mx-auto text-slate-300 w-12 h-12 mb-2"/>
+                           <p className="text-slate-500">No updates yet. Check back later.</p>
+                       </div>
+                   )}
                </div>
            ) : (
                <div className="max-w-xl w-full bg-white rounded-xl shadow p-8">
@@ -1210,14 +1227,25 @@ const UserDashboard = ({ currentUser }: { currentUser: User }) => {
                    </div>
                    
                    <div className="space-y-4">
-                       <div className="bg-blue-50 p-3 rounded text-sm text-blue-800 flex items-center gap-2">
-                           <Key size={16} /> 
-                           <span className="font-semibold">Password:</span>
-                           {isEditingProfile ? (
-                               <input type="text" className="bg-white border rounded px-2 py-1 ml-2 flex-1" value={password} onChange={e => setPassword(e.target.value)} placeholder="New Password" />
-                           ) : (
-                               <span>********</span>
-                           )}
+                       <div className="bg-blue-50 p-3 rounded text-sm text-blue-800 flex flex-col gap-2">
+                           <div className="flex items-center gap-2">
+                               <Key size={16} /> 
+                               <span className="font-semibold">Password:</span>
+                               {isEditingProfile ? (
+                                   <input type="text" className="bg-white border rounded px-2 py-1 ml-2 flex-1" value={password} onChange={e => setPassword(e.target.value)} placeholder="New Password" />
+                               ) : (
+                                   <span>{password ? '********' : 'Not Set'}</span>
+                               )}
+                           </div>
+                           <div className="flex items-center gap-2">
+                               <Mail size={16} /> 
+                               <span className="font-semibold">Email:</span>
+                               {isEditingProfile ? (
+                                   <input type="email" className="bg-white border rounded px-2 py-1 ml-2 flex-1" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email Address" />
+                               ) : (
+                                   <span>{email || 'Not Set'}</span>
+                               )}
+                           </div>
                        </div>
 
                        <div className="grid grid-cols-2 gap-4">
@@ -1275,7 +1303,6 @@ const UserDashboard = ({ currentUser }: { currentUser: User }) => {
 const App = () => {
   const [user, setUser] = useState<User | null>(null);
   const [view, setView] = useState<'landing' | 'login' | 'register'>('landing');
-  const [registerAuth, setRegisterAuth] = useState<{ email: string, provider: 'google' | 'facebook' | 'manual' } | null>(null);
 
   useEffect(() => {
     const stored = getCurrentUser();
@@ -1288,19 +1315,17 @@ const App = () => {
 
   if (view === 'login') return <LoginPage 
       onLogin={setUser} 
-      onRegisterRequest={(auth) => { setRegisterAuth(auth); setView('register'); }} 
+      onRegisterRequest={() => { setView('register'); }} 
       onBack={() => setView('landing')} 
-      onGoToRegister={() => { setRegisterAuth(null); setView('register'); }}
   />;
   
   if (view === 'register') return <RegisterPage 
-      initialAuth={registerAuth}
       onCancel={() => setView('landing')} 
       onComplete={(newUser) => { setUser(newUser); }} 
       onGoToLogin={() => setView('login')}
   />;
 
-  return <LandingPage onJoin={() => { setRegisterAuth(null); setView('register'); }} onLoginAdmin={() => setView('login')} />;
+  return <LandingPage onJoin={() => { setView('register'); }} onLoginAdmin={() => setView('login')} />;
 };
 
 export default App;

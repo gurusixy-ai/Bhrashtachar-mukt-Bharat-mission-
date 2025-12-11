@@ -13,6 +13,7 @@ export interface OrganizationAssets {
   logo?: string;
   stamp?: string;
   signature?: string;
+  idCardTheme?: 'patriotic' | 'blue' | 'dark' | 'minimal' | 'red';
   socialLinks?: {
     facebook?: string;
     twitter?: string;
@@ -30,10 +31,18 @@ export interface MediaItem {
   approved: boolean;
 }
 
+export interface Post {
+  id: string;
+  content: string;
+  imageUrl?: string;
+  timestamp: string;
+  author: string;
+}
+
 export interface User {
   id: string;
   edNumber: string; // Unique ID like BMBM-2025-XXXX
-  email: string; // Used for login correlation (Gmail/FB), but hidden in UI
+  email?: string; // Optional now, usually empty or user provided
   authProvider: 'google' | 'facebook' | 'manual';
   password?: string; 
   role: UserRole;
@@ -48,7 +57,7 @@ export interface User {
     fullName: string;
     fatherName: string;
     dob: string;
-    mobile: string;
+    mobile: string; // Primary Key for Login
     
     // Detailed Address
     village: string; // Gaon / Mohalla

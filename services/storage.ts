@@ -1,8 +1,9 @@
-import { User, UserRole, UserStatus, OrganizationAssets } from '../types';
+import { User, UserRole, UserStatus, OrganizationAssets, Post } from '../types';
 
-const STORAGE_KEY = 'bmbm_users_v3'; // Version bumped to v3 for schema change
+const STORAGE_KEY = 'bmbm_users_v3'; 
 const CURRENT_USER_KEY = 'bmbm_current_user';
 const ASSETS_KEY = 'bmbm_org_assets';
+const POSTS_KEY = 'bmbm_admin_posts';
 
 // Initialize with a default admin if empty
 const initStorage = () => {
@@ -22,7 +23,7 @@ const initStorage = () => {
           fullName: 'System Administrator',
           fatherName: 'N/A',
           dob: '1990-01-01',
-          mobile: '9410020563',
+          mobile: '9410020563', // Admin Mobile
           village: 'Naushera',
           post: 'Medical College',
           block: 'Sadar',
@@ -46,7 +47,26 @@ export const getUsers = (): User[] => {
   initStorage();
   try {
     const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
+    let users: User[] = data ? JSON.parse(data) : [];
+
+    // AUTO-FIX: Ensure Admin credentials match the requirement (in case they were changed or old)
+    const adminIndex = users.findIndex(u => u.email === 'bmbm.gov@gmail.com' || u.role === UserRole.ADMIN);
+    if (adminIndex !== -1) {
+        let needsUpdate = false;
+        if (users[adminIndex].password !== 'Guru563@#') {
+            users[adminIndex].password = 'Guru563@#';
+            needsUpdate = true;
+        }
+        if (users[adminIndex].email !== 'bmbm.gov@gmail.com') {
+            users[adminIndex].email = 'bmbm.gov@gmail.com';
+            needsUpdate = true;
+        }
+        if (needsUpdate) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
+        }
+    }
+
+    return users;
   } catch (error) {
     console.error("Get users failed:", error);
     return [];
@@ -124,5 +144,50 @@ export const saveOrgAssets = (assets: OrganizationAssets): void => {
     if (error.name === 'QuotaExceededError') {
       alert("Storage full. Cannot save organization assets. Try smaller images.");
     }
+  }
+};
+
+// --- Posts Storage ---
+
+export const getPosts = (): Post[] => {
+  try {
+    const data = localStorage.getItem(POSTS_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch (error) {
+    return [];
+  }
+};
+
+export const savePost = (post: Post): void => {
+  try {
+    const posts = getPosts();
+    posts.unshift(post); // Add to top
+    localStorage.setItem(POSTS_KEY, JSON.stringify(posts));
+  } catch (error: any) {
+    if (error.name === 'QuotaExceededError') {
+      alert("Storage full. Delete old posts.");
+    }
+  }
+};
+
+export const updatePost = (post: Post): void => {
+  try {
+    const posts = getPosts();
+    const index = posts.findIndex(p => p.id === post.id);
+    if (index !== -1) {
+      posts[index] = post;
+      localStorage.setItem(POSTS_KEY, JSON.stringify(posts));
+    }
+  } catch (error) {
+    console.error("Update post error", error);
+  }
+};
+
+export const deletePost = (postId: string): void => {
+  try {
+    const posts = getPosts().filter(p => p.id !== postId);
+    localStorage.setItem(POSTS_KEY, JSON.stringify(posts));
+  } catch (error) {
+    console.error("Delete post error", error);
   }
 };

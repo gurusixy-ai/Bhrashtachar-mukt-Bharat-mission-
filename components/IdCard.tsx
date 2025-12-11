@@ -1,7 +1,7 @@
 import React from 'react';
 import { User, OrganizationAssets } from '../types';
 import { OfficialStamp } from './Stamp';
-import { Facebook, Twitter, Instagram } from 'lucide-react';
+import { Facebook, Twitter, Instagram, Phone, Mail } from 'lucide-react';
 
 interface IdCardProps {
   user: User;
@@ -9,10 +9,63 @@ interface IdCardProps {
 }
 
 export const IdCard: React.FC<IdCardProps> = ({ user, assets }) => {
+  const theme = assets?.idCardTheme || 'patriotic';
+
+  // Theme configurations
+  const getThemeStyles = () => {
+      switch (theme) {
+          case 'blue':
+              return {
+                  headerBg: 'bg-gradient-to-r from-blue-700 to-indigo-800',
+                  accentColor: 'text-blue-700',
+                  bottomBar: 'bg-indigo-800',
+                  designationColor: 'text-blue-600',
+                  socialColor: 'border-blue-100 bg-blue-50'
+              };
+          case 'dark':
+              return {
+                  headerBg: 'bg-gradient-to-r from-slate-800 to-slate-900',
+                  accentColor: 'text-slate-800',
+                  bottomBar: 'bg-slate-900',
+                  designationColor: 'text-slate-600',
+                  socialColor: 'border-slate-200 bg-slate-100'
+              };
+          case 'red':
+            return {
+                headerBg: 'bg-gradient-to-r from-red-700 to-red-900',
+                accentColor: 'text-red-800',
+                bottomBar: 'bg-red-900',
+                designationColor: 'text-red-600',
+                socialColor: 'border-red-100 bg-red-50'
+            };
+          case 'minimal':
+              return {
+                  headerBg: 'bg-slate-200', // Very subtle
+                  headerText: 'text-slate-800', // Dark text for light bg
+                  accentColor: 'text-slate-800',
+                  bottomBar: 'bg-slate-400',
+                  designationColor: 'text-slate-600',
+                  socialColor: 'border-slate-200 bg-slate-50'
+              };
+          case 'patriotic':
+          default:
+              return {
+                  headerBg: 'bg-gradient-to-r from-orange-600 to-green-700',
+                  accentColor: 'text-slate-800',
+                  bottomBar: 'bg-green-700',
+                  designationColor: 'text-orange-600',
+                  socialColor: 'border-slate-100 bg-slate-50'
+              };
+      }
+  };
+
+  const styles = getThemeStyles();
+  const isMinimal = theme === 'minimal';
+
   return (
     <div className="w-[350px] h-[550px] bg-white rounded-xl overflow-hidden shadow-2xl border border-slate-200 relative print:shadow-none print:border-slate-400 select-none">
       {/* Header Background */}
-      <div className="h-32 bg-gradient-to-r from-orange-600 to-green-700 absolute top-0 w-full z-0">
+      <div className={`h-32 ${styles.headerBg} absolute top-0 w-full z-0`}>
         <div className="absolute opacity-10 top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
       </div>
 
@@ -22,7 +75,7 @@ export const IdCard: React.FC<IdCardProps> = ({ user, assets }) => {
            {assets?.logo && (
              <img src={assets.logo} alt="Logo" className="h-16 w-16 object-contain bg-white rounded-full p-1 mb-1 shadow-sm" />
            )}
-           <div className="text-white font-bold text-lg text-center leading-tight drop-shadow-md uppercase">
+           <div className={`font-bold text-lg text-center leading-tight drop-shadow-md uppercase ${isMinimal ? 'text-slate-800' : 'text-white'}`}>
              BHRASHTACHAR MUKT<br/>BHARAT MISSION
            </div>
         </div>
@@ -38,8 +91,8 @@ export const IdCard: React.FC<IdCardProps> = ({ user, assets }) => {
 
         {/* Name & Role */}
         <div className="mt-4 text-center px-4 w-full">
-          <h2 className="text-xl font-bold text-slate-800 uppercase tracking-tight truncate">{user.details.fullName}</h2>
-          <p className="text-orange-600 font-semibold text-sm mt-1 uppercase">{user.details.designation}</p>
+          <h2 className={`text-xl font-bold uppercase tracking-tight truncate ${styles.accentColor}`}>{user.details.fullName}</h2>
+          <p className={`font-semibold text-sm mt-1 uppercase ${styles.designationColor}`}>{user.details.designation}</p>
         </div>
 
         {/* ID Number Badge */}
@@ -50,7 +103,7 @@ export const IdCard: React.FC<IdCardProps> = ({ user, assets }) => {
 
         {/* Social Icons on Card - Digital ID Links */}
         {(user.socialLinks?.facebook || user.socialLinks?.twitter || user.socialLinks?.instagram) && (
-           <div className="flex gap-3 mt-3 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100 shadow-sm">
+           <div className={`flex gap-3 mt-2 px-3 py-1.5 rounded-full border shadow-sm ${styles.socialColor}`}>
               {user.socialLinks.facebook && <Facebook size={14} className="text-[#1877F2]" fill="currentColor"/>}
               {user.socialLinks.twitter && <Twitter size={14} className="text-[#1DA1F2]" fill="currentColor"/>}
               {user.socialLinks.instagram && <Instagram size={14} className="text-[#E4405F]"/>}
@@ -59,19 +112,23 @@ export const IdCard: React.FC<IdCardProps> = ({ user, assets }) => {
 
         {/* Details Grid */}
         <div className="mt-4 w-full px-8 space-y-1.5">
-          <div className="flex justify-between border-b border-slate-100 pb-1">
+          <div className="flex justify-between border-b border-slate-100 pb-1 items-center">
             <span className="text-xs text-slate-400 uppercase font-medium">Department</span>
             <span className="text-xs font-medium text-slate-700">{user.details.department}</span>
           </div>
-          <div className="flex justify-between border-b border-slate-100 pb-1">
+          <div className="flex justify-between border-b border-slate-100 pb-1 items-center">
             <span className="text-xs text-slate-400 uppercase font-medium">DOB</span>
             <span className="text-xs font-medium text-slate-700">{user.details.dob}</span>
           </div>
-           <div className="flex justify-between border-b border-slate-100 pb-1">
-            <span className="text-xs text-slate-400 uppercase font-medium">Mobile</span>
-            <span className="text-xs font-medium text-slate-700">{user.details.mobile}</span>
+          <div className="flex justify-between border-b border-slate-100 pb-1 items-center">
+            <span className="text-xs text-slate-400 uppercase font-medium flex items-center gap-1"><Phone size={10}/> Mobile</span>
+            <span className="text-xs font-bold text-slate-900">{user.details.mobile}</span>
           </div>
-          <div className="flex justify-between border-b border-slate-100 pb-1">
+          <div className="flex justify-between border-b border-slate-100 pb-1 items-center">
+            <span className="text-xs text-slate-400 uppercase font-medium flex items-center gap-1"><Mail size={10}/> Email</span>
+            <span className="text-[10px] font-medium text-slate-700">{user.email || 'N/A'}</span>
+          </div>
+          <div className="flex justify-between border-b border-slate-100 pb-1 items-center">
             <span className="text-xs text-slate-400 uppercase font-medium">Location</span>
             <span className="text-xs font-medium text-slate-700 truncate max-w-[150px]">{user.details.district}, {user.details.state}</span>
           </div>
@@ -82,7 +139,7 @@ export const IdCard: React.FC<IdCardProps> = ({ user, assets }) => {
             <div className="flex flex-col items-center gap-1">
                  <div className="bg-white p-1 shadow-sm rounded border border-slate-100">
                     <img 
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=BMBM MEMBER: ${user.details.fullName} (${user.edNumber}) - ${user.details.district}`} 
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${user.details.fullName} | ${user.edNumber} | ${user.details.mobile} | Verified Member of BMBM`} 
                         alt="QR" 
                         className="w-12 h-12"
                     />
@@ -112,7 +169,7 @@ export const IdCard: React.FC<IdCardProps> = ({ user, assets }) => {
         </div>
         
         {/* Bottom Accent */}
-        <div className="h-2 w-full bg-green-700 absolute bottom-0"></div>
+        <div className={`h-2 w-full ${styles.bottomBar} absolute bottom-0`}></div>
       </div>
     </div>
   );
